@@ -20,7 +20,7 @@ def generate_launch_description():
         'worlds',
         'empty_world.world'
     )
-
+#
     # Launch Description to run Gazebo Server
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(

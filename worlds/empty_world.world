@@ -14,6 +14,12 @@
       <shadows>false</shadows>
     </scene>
 
+    <road name="my_road">
+      <width>7.34</width>
+      <point>-50 0 0.00001</point>
+      <point>50 0 0.00001</point>
+    </road>
+
     <gui fullscreen='0'>
       <camera name='user_camera'>
         <pose frame=''>0.319654 -0.235002 9.29441 0 1.5138 0.009599</pose>
@@ -42,6 +48,36 @@
         </constraints>
       </ode>
     </physics>
+
+    <!-- An actor -->
+    <actor name="car_626">
+        <pose>10 -1.5 0.01 0 0 0</pose>
+        <include>
+      <name>pickup_627</name>
+      <pose>0 0 0.0 0 0 0</pose>
+      <uri>model://pickup</uri>
+    </include>
+
+        <!-- <script>
+          <loop>true</loop>
+          <delay_start>0.000000</delay_start>
+          <auto_start>true</auto_start>
+
+          <trajectory id="0" type="animation">
+            
+              <waypoint>
+                <time>0.0</time>
+                <pose>-50 -1.5 0.01 0 0 0</pose>
+              </waypoint>
+            
+              <waypoint>
+                <time>10.0</time>
+                <pose>50 -1.5 0.01 0 0 0</pose>
+              </waypoint>
+            
+          </trajectory>
+        </script> -->
+      </actor>
 
   </world>
 </sdf>

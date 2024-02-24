@@ -7,8 +7,9 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(gazebo REQUIRED)
+find_package(gazebo_ros_pkgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -21,53 +22,50 @@ find_package(ament_cmake_gtest)
 find_package(xacro REQUIRED)
 find_package(ros2_control REQUIRED)
 find_package(robot_state_publisher REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(OpenCV REQUIRED)
 
 
+include_directories(include)
+include_directories(
+  include
+  ${OpenCV_INCLUDE_DIRS}
+)
 
 install(
   DIRECTORY include/autonomous_vehicle
   DESTINATION include
 )
 
-add_library(vehicle_library SHARED
-  src/project.cpp
-)
+
+add_executable(car_control src/main.cpp)
+ament_target_dependencies(car_control tf2 tf2_ros rclcpp cv_bridge std_msgs sensor_msgs geometry_msgs nav_msgs)
+
+add_library(vehicle_library src/car.cpp)
+target_include_directories(vehicle_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+ament_target_dependencies(vehicle_library tf2 tf2_ros  cv_bridge rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs)
 
 
-target_include_directories(vehicle_library
-    PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
-)
 
-
-ament_target_dependencies(vehicle_library
-  rclcpp
-  std_msgs
-)
 install(DIRECTORY
   launch
   worlds
   urdf
   meshes
   config
-  
   DESTINATION share/${PROJECT_NAME}/
 )
 
-add_executable(keyboard_control scripts/publisher.cpp)
-ament_target_dependencies(keyboard_control rclcpp std_msgs geometry_msgs)
-
-
-target_link_directories(keyboard_control PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(keyboard_control vehicle_library)
+target_link_directories(car_control PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(car_control vehicle_library)
 
 install(TARGETS
-  keyboard_control
+  car_control
   DESTINATION lib/${PROJECT_NAME})
 
 install(
   PROGRAMS
   launch/robot_description_publisher.py
-  # scripts/teleop.py
   scripts/key_board.py
   DESTINATION lib/${PROJECT_NAME}
 )
