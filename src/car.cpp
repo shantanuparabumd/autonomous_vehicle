@@ -25,7 +25,7 @@
 
 #include "autonomous_vehicle/car.hpp" //<-- Include the car header file
 #include <string>
-
+#include <opencv2/opencv.hpp>
 
 //=====================================
 Car::Car(std::string car_name, std::string node_name)
@@ -165,30 +165,69 @@ void Car::front_left_middle_scan_callback(const sensor_msgs::msg::LaserScan &msg
 
 
 //=====================================
+
 void Car::front_camera_callback(const sensor_msgs::msg::Image &msg) {
-  // Convert the ROS image message to an OpenCV image
-  cv_bridge::CvImagePtr cv_ptr;
+    // Convert the ROS image message to an OpenCV image
+    cv_bridge::CvImagePtr cv_ptr;
 
-  // Convert the ROS image message to an OpenCV image
-  try {
-    cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-  } catch (cv_bridge::Exception &e) {
-    RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
-    return;
-  }
+    // Convert the ROS image message to an OpenCV image
+    try {
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    } catch (cv_bridge::Exception &e) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
+        return;
+    }
 
+    // Define the region of interest (ROI) excluding the bottom 100 pixels
+    cv::Rect roi(0, 0, cv_ptr->image.cols, cv_ptr->image.rows - 300);
+    cv::Mat image_roi = cv_ptr->image(roi);
 
-  // Display Image Name
-  cv::putText(cv_ptr->image, "Front Camera Image" ,
-     cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 2);
+    // Detect road lines in the image ROI
+    cv::Mat grayImage;
+    cv::cvtColor(image_roi, grayImage, cv::COLOR_BGR2GRAY);
 
-  // Convert the OpenCV image to a ROS image message
-  sensor_msgs::msg::Image::SharedPtr processed_image_msg_ptr =
-      cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_ptr->image).toImageMsg();
+    cv::Mat edges;
+    cv::Canny(grayImage, edges, 50, 150);
 
-  // Store the pointer to the processed image message to be publsihed later
-  m_front_processed_image_msg = *processed_image_msg_ptr;
+    std::vector<cv::Vec4i> lines;
+    cv::HoughLinesP(edges, lines, 1, CV_PI / 180, 50, 50, 10);
+
+    // Sort the lines by their length
+    std::sort(lines.begin(), lines.end(), [](const cv::Vec4i& a, const cv::Vec4i& b) {
+        return cv::norm(cv::Point(a[0], a[1]) - cv::Point(a[2], a[3])) >
+               cv::norm(cv::Point(b[0], b[1]) - cv::Point(b[2], b[3]));
+    });
+
+    // Draw the three longest lines with slopes near -0.26 or 0.67 on the image
+    int drawn_lines = 0;
+    for (size_t i = 0; i < lines.size() && drawn_lines < 10; ++i) {
+        cv::Vec4i l = lines[i];
+        // Calculate the slope of the line
+        double slope = (static_cast<double>(l[3]) - l[1]) / (l[2] - l[0]);
+        // Check if the slope is near -0.26 or 0.67
+        if (std::abs(slope + 0.26) < 0.5 || std::abs(slope - 0.67) < 0.5) { // Adjust tolerance as needed
+            cv::line(cv_ptr->image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
+            // Display Image Name
+            // cv::putText(cv_ptr->image, std::to_string(slope),
+            //     cv::Point(l[0], l[1]), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
+                drawn_lines++;
+        }
+    }
+
+    // Display Image Name
+    cv::putText(cv_ptr->image, "Front Camera Image",
+                cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 2);
+
+    // Convert the OpenCV image to a ROS image message
+    sensor_msgs::msg::Image::SharedPtr processed_image_msg_ptr =
+            cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_ptr->image).toImageMsg();
+
+    // Store the pointer to the processed image message to be published later
+    m_front_processed_image_msg = *processed_image_msg_ptr;
 }
+
+
+
 
 
 void Car::publish_control_commands(double linear, double steering)
@@ -221,8 +260,8 @@ void Car::front_image_pub_callback()
 void Car::move(){
     publish_control_commands(4.0, 0.0);
 
-    if (check_obstacle(m_front_right_far_scan_data, 2.0, 0, 2) == true) {
-      RCLCPP_INFO(this->get_logger(), "Obstacle detected on the right side");
+    if (check_obstacle(m_front_left_far_scan_data, 4.0, 0, 2) == true) {
+    //   RCLCPP_INFO(this->get_logger(), "Obstacle detected on the right side");
       publish_control_commands(0.0, 0.0);
     }
     else {
@@ -248,7 +287,6 @@ bool Car::check_obstacle(const std::vector<float> scan_data, float threshold,int
       // Check if the distance is less than the threshold
 
       if (scan_data[i] > 0.0 && scan_data[i]  < threshold) {
-        RCLCPP_INFO_STREAM(this->get_logger(),"Scan Data: "<< scan_data[0]);
         // If the distance is less than the threshold,
         // set the obstacle_detected flag to true and break
         obstacle_detected = true;
@@ -260,7 +298,6 @@ bool Car::check_obstacle(const std::vector<float> scan_data, float threshold,int
       // Check if the distance is less than the threshold
       
       if (scan_data[static_cast<int>(scan_data.size()) + i] > 0 && scan_data[static_cast<int>(scan_data.size()) + i] < threshold) {
-        RCLCPP_INFO_STREAM(this->get_logger(),"Scan Data: "<< scan_data[0]);
         // If the distance is less than the threshold,
         // set the obstacle_detected flag to true and break
         obstacle_detected = true;
@@ -268,6 +305,5 @@ bool Car::check_obstacle(const std::vector<float> scan_data, float threshold,int
       }
     }
   }
-  RCLCPP_INFO_STREAM(this->get_logger(),"Return "<< obstacle_detected);
   return obstacle_detected;
 }

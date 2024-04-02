@@ -24,6 +24,7 @@ find_package(ros2_control REQUIRED)
 find_package(robot_state_publisher REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 
 
 include_directories(include)
@@ -47,14 +48,7 @@ ament_target_dependencies(vehicle_library tf2 tf2_ros  cv_bridge rclcpp std_msgs
 
 
 
-install(DIRECTORY
-  launch
-  worlds
-  urdf
-  meshes
-  config
-  DESTINATION share/${PROJECT_NAME}/
-)
+
 
 target_link_directories(car_control PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(car_control vehicle_library)
@@ -63,10 +57,14 @@ install(TARGETS
   car_control
   DESTINATION lib/${PROJECT_NAME})
 
+
+ament_python_install_package(${PROJECT_NAME} 
+  SCRIPTS_DESTINATION lib/${PROJECT_NAME})
+
 install(
   PROGRAMS
-  launch/robot_description_publisher.py
   scripts/key_board.py
+  scripts/waypoint.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
