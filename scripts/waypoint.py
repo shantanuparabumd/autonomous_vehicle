@@ -46,6 +46,16 @@ class KeyboardControlNode(Node):
         
             
         
+    def new_plan(self):
+        astar = Astar()
+        if astar.plan():
+            print("Path Found")
+            self.path = astar.path_to_goal()
+            self.index = 0
+        else:
+            print("No Path Found")
+            self.path = None
+        
     def odom_callback(self, msg):
         # print("Odom Callback")
         self.x= msg.pose.position.x
@@ -122,7 +132,7 @@ class KeyboardControlNode(Node):
         return self.x, self.y, self.yaw
 
 
-    def reached_waypoint(self, robot, current_target,threshold=1):
+    def reached_waypoint(self, robot, current_target,threshold=5):
         # Calculate the distance between the robot and the target point
         distance = np.sqrt((robot[0] - current_target[0])**2 + (robot[1] - current_target[1])**2)
         
@@ -157,6 +167,9 @@ class KeyboardControlNode(Node):
             print("Target: ",current_target)
             if self.reached_waypoint((robot_x, robot_y), current_target):
                 self.index += 1
+                if self.index >= len(self.path):
+                    self.publsih_velocity(0.0,0.0)
+                    self.new_plan()
             
             
             way_x,way_y = self.absolute2relative(current_target[0], current_target[1], robot_x, robot_y, robot_yaw)

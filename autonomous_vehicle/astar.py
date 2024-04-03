@@ -42,8 +42,11 @@ class Astar:
     
     def __init__(self) -> None:
         
-        self.start = Node((2050,1660))
-        self.goal = Node((1034,654))
+        # self.start = Node((2050,1660))
+        # self.goal = Node((1034,654))
+        
+        self.start = None
+        self.goal = None
         
         
         self.step_size =50
@@ -86,12 +89,12 @@ class Astar:
         new_size = (self.scale_x, self.scale_y)
         resized_image = cv2.resize(self.map, new_size, interpolation=cv2.INTER_AREA)
 
-        # # Display the image
-        # cv2.imshow("Rectangles", resized_image)
-        # # Set the mouse callback function for the image window
-        # cv2.setMouseCallback("Rectangles", self.mouse_callback)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        # Display the image
+        cv2.imshow("Rectangles", resized_image)
+        # Set the mouse callback function for the image window
+        cv2.setMouseCallback("Rectangles", self.mouse_callback)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
         
     def mouse_callback(self,event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
