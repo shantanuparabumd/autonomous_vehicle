@@ -1,0 +1,87 @@
+name: firefly_swarm_build
+
+on:
+  # Triggered whenever push to the master branch
+  push:
+    branches:
+      - master
+
+  # Triggered whenever a pull request is created on master
+  pull_request:
+    branches: ["master"]
+    types: [opened]
+
+
+jobs:
+  build:
+    # Create a container of the latest Ubuntu, other values could be
+    # ubuntu-latest, ubuntu-22.04, etc.
+    runs-on: ubuntu-20.04
+
+    steps:
+      
+      # Install some system pacakges
+      - name: Install ROS 2 Galactic packages
+        run: |
+          sudo apt update
+          sudo apt install -y software-properties-common
+          sudo add-apt-repository universe
+          sudo apt update && sudo apt install -y curl
+          sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+          sudo apt update
+          sudo apt install -y ros-galactic-ros-base python3-colcon-common-extensions
+          sudo apt install -y lcov
+
+      - name: Setup Workspace
+        run: |
+          source /opt/ros/galactic/setup.bash
+          mkdir -p ros_ws/src/firefly_swarm
+          cd ros_ws
+          colcon build
+          source install/setup.bash
+
+      # We want to use GitHub CI checkout version 3 for checking out the branch
+      - uses: actions/checkout@v3
+        with:
+          path: ros_ws/src/firefly_swarm
+
+      # Build for test coverage
+      - name: Configure CMake flags and build exectables
+        run: |
+          source /opt/ros/galactic/setup.bash
+          sudo apt install python3-rosdep
+          sudo rosdep init
+          rosdep update --include-eol-distros
+          cd ros_ws
+          rosdep install --from-paths src -y --ignore-src
+          colcon build --cmake-args -DCOVERAGE=1 --packages-select firefly_swarm
+
+
+      # - name: Run unit test and check code error
+      #   run: |
+      #     source /opt/ros/galactic/setup.bash
+      #     cd ros_ws
+      #     colcon test --packages-select firefly_swarm
+      #     cat log/latest_test/firefly_swarm/stdout_stderr.log
+      #     find build/firefly_swarm/ | grep -E 'gcda' # catch error -- expect to see .gcda files
+      #     colcon test-result --test-result-base build/firefly_swarm/ # catch error
+
+      # Generate code coverage test report
+      # - name: Generate test coverage report
+      #   run: |
+      #     cd ros_ws
+      #     source install/setup.bash
+      #     ros2 run firefly_swarm generate_coverage_report.bash
+
+      # Upload coverage result to CodeCov
+      # - name: Upload coverage result to CodeCov
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+      #     files: ${{github.workspace}}/ros_ws/install/firefly_swarm/lib/firefly_swarm/coverage_cleaned.info
+      #     # flags: unittests # optional
+      #     # directory: ${{github.workspace}}/install/
+      #     # name: codecov-umbrella # optional
+      #     fail_ci_if_error: true # optional (default = false)
+      #     verbose: true # optional (default = false)
