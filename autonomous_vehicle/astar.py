@@ -191,7 +191,7 @@ class Astar:
     
     
     def check_goal(self, node):
-        if self.distance(node, self.goal) < 25:
+        if self.distance(node, self.goal) < 50:
             return True
         return False
     
